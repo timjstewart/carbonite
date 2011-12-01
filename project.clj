@@ -3,6 +3,5 @@
   :dependencies [[org.clojure/clojure "1.3.0"]
                  [com.googlecode/kryo "1.04"]]
   :dev-dependencies [[swank-clojure "1.3.3"]]
-  :warn-on-reflection true
-)
+  :warn-on-reflection true)
 

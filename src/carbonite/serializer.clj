@@ -1,7 +1,8 @@
 (ns carbonite.serializer
   (:require [clojure.string :as s])
   (:import [com.esotericsoftware.kryo Kryo Serializer SerializationException]
-           [com.esotericsoftware.kryo.serialize StringSerializer MapSerializer IntSerializer
+           [com.esotericsoftware.kryo.serialize StringSerializer
+            MapSerializer IntSerializer
             LongSerializer BigDecimalSerializer BigIntegerSerializer DateSerializer]
            [java.io ByteArrayInputStream InputStream]
            [java.nio ByteBuffer BufferOverflowException]
@@ -156,8 +157,6 @@
    ;; maps - use transients for perf
    (map #(vector % (clojure-map-serializer registry))
         [PersistentArrayMap PersistentHashMap PersistentStructMap])))
-
-
 
 ;; Copyright 2011 Revelytix, Inc.
 ;;
