@@ -2,7 +2,13 @@
   (:require [clojure.string :as s])
   (:use [carbonite.serializer])
   (:import [com.esotericsoftware.kryo Kryo Serializer]
-           [java.nio ByteBuffer]))
+           [java.nio ByteBuffer])
+  (:gen-class :main false
+              :methods
+              [^{:static true} [defaultRegistry
+                                [] com.esotericsoftware.kryo.Kryo]
+               ^{:static true} [enhanceRegistry
+                                [com.esotericsoftware.kryo.Kryo] void]]))
 
 ;;;; Creating a Kryo registry
 
@@ -55,6 +61,11 @@
   [^Kryo registry byte-buffer]
   (.readClassAndObject registry byte-buffer))
 
+(defn -defaultRegistry []
+  (default-registry))
+
+(defn -enhanceRegistry [registry]
+  (default-registry registry))
 
 ;; Copyright 2011 Revelytix, Inc.
 ;;
