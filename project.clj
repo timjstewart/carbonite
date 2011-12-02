@@ -1,4 +1,4 @@
-(defproject cascalog/carbonite "1.0.0"
+(defproject cascalog/carbonite "1.0.1"
   :description "Write Clojure data to and from bytes using Kryo."
   :dependencies [[org.clojure/clojure "1.3.0"]
                  [com.googlecode/kryo "1.04"]]
