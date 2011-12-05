@@ -11,4 +11,6 @@
   (default-registry))
 
 (defn -enhanceRegistry [registry]
-  (default-registry registry))
+  (doto registry
+    (register-serializers clojure-primitives)
+    (register-serializers (clojure-collections registry))))
