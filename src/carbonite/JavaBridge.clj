@@ -1,5 +1,5 @@
 (ns carbonite.JavaBridge
-  (:use carbonite.api)
+  (:use [carbonite api serializer])
   (:gen-class :main false
               :methods
               [^{:static true} [defaultRegistry
