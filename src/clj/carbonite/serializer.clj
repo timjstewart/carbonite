@@ -12,7 +12,7 @@
            [java.sql Time Timestamp]
            [clojure.lang BigInt Keyword Symbol PersistentArrayMap
             PersistentHashMap MapEntry PersistentStructMap 
-            PersistentVector PersistentHashSet
+            PersistentVector PersistentHashSet Ratio
             Cons PersistentList PersistentList$EmptyList
             ArraySeq$ArraySeq_int LazySeq IteratorSeq StringSeq]))
 
@@ -135,13 +135,25 @@
       (let [constructor (.getConstructor klass (into-array Class [Long/TYPE]))]
         (.newInstance constructor (object-array [ (LongSerializer/get buffer true)]))))))
 
+(def ratio-serializer
+  (proxy [Serializer] []  
+    (writeObjectData [buffer ^Ratio obj]
+      (doto (BigIntegerSerializer.)
+        (.writeObjectData buffer (.numerator obj))
+        (.writeObjectData buffer (.denominator obj))))
+    (readObjectData [buffer type]
+      (let [^Serializer big (BigIntegerSerializer.)]
+        (Ratio. (.readObjectData big buffer nil)
+                (.readObjectData big buffer nil))))))
+
 (def ^{:doc "Define a map of Clojure primitives and their serializers
   to install."}
   clojure-primitives
   (array-map
    BigInt clojure-reader-serializer
    Keyword clojure-reader-serializer
-   Symbol clojure-reader-serializer))
+   Symbol clojure-reader-serializer
+   Ratio clojure-reader-serializer))
 
 (def java-primitives
   (array-map

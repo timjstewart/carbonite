@@ -25,6 +25,7 @@
        1      ;; long
        5.2    ;; double
        5M     ;; BigDecimal
+       (/ 1 2) ;; Ratio
        1000000000000000000000000  ;; BigInt
        :foo   ;; keyword
        :a/foo ;; namespaced keyword
