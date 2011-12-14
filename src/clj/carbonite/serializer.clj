@@ -3,14 +3,15 @@
   (:import [com.esotericsoftware.kryo Kryo Serializer SerializationException]
            [com.esotericsoftware.kryo.serialize StringSerializer
             MapSerializer IntSerializer
-            LongSerializer BigDecimalSerializer BigIntegerSerializer DateSerializer]
+            LongSerializer BigDecimalSerializer BigIntegerSerializer
+            DateSerializer]
            [java.io ByteArrayInputStream InputStream]
            [java.nio ByteBuffer BufferOverflowException]
            [java.math BigDecimal BigInteger]
            [java.net URI]
            [java.util Date UUID]
            [java.sql Time Timestamp]
-           [clojure.lang BigInt Keyword Symbol PersistentArrayMap
+           [clojure.lang Keyword Symbol PersistentArrayMap
             PersistentHashMap MapEntry PersistentStructMap 
             PersistentVector PersistentHashSet Ratio
             Cons PersistentList PersistentList$EmptyList Var
@@ -161,12 +162,15 @@
 (def ^{:doc "Define a map of Clojure primitives and their serializers
   to install."}
   clojure-primitives
-  (array-map
-   BigInt clojure-reader-serializer
-   Keyword clojure-reader-serializer
-   Symbol clojure-reader-serializer
-   Ratio clojure-reader-serializer
-   Var clojure-print-dup-serializer))
+  (let [prims (array-map
+               Keyword clojure-reader-serializer
+               Symbol clojure-reader-serializer
+               Ratio clojure-reader-serializer
+               Var clojure-print-dup-serializer)]
+    (if-let [big-int (try (Class/forName "clojure.lang.BigInt")
+                          (catch ClassNotFoundException _))]
+      (assoc prims big-int clojure-reader-serializer)
+      prims)))
 
 (def java-primitives
   (array-map
