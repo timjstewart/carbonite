@@ -13,7 +13,7 @@
            [clojure.lang BigInt Keyword Symbol PersistentArrayMap
             PersistentHashMap MapEntry PersistentStructMap 
             PersistentVector PersistentHashSet Ratio
-            Cons PersistentList PersistentList$EmptyList
+            Cons PersistentList PersistentList$EmptyList Var
             ArraySeq$ArraySeq_int LazySeq IteratorSeq StringSeq]))
 
 (defn clj-print
@@ -33,6 +33,16 @@
   clojure-reader-serializer
   (proxy [Serializer] []  
     (writeObjectData [buffer obj] (clj-print buffer obj))
+    (readObjectData [buffer type] (clj-read buffer))))
+
+(def ^{:doc "Define a serializer that utilizes the Clojure pr-str and
+  read-string functions to serialize/deserialize instances relying
+  solely on the printer/reader. Binds *print-dup* to true on read."}
+  clojure-print-dup-serializer
+  (proxy [Serializer] []  
+    (writeObjectData [buffer obj]
+      (binding [*print-dup* true]
+        (clj-print buffer obj)))
     (readObjectData [buffer type] (clj-read buffer))))
 
 (defn clojure-coll-serializer
@@ -83,7 +93,9 @@
      (if (zero? remaining)
        (persistent! data)
        (recur (dec remaining)
-              (assoc! data (.readClassAndObject registry buffer) (.readClassAndObject registry buffer)))))))
+              (assoc! data
+                      (.readClassAndObject registry buffer)
+                      (.readClassAndObject registry buffer)))))))
 
 (defn clojure-map-serializer
   "Create a Kryo serializer for an associative data structure."
@@ -153,14 +165,15 @@
    BigInt clojure-reader-serializer
    Keyword clojure-reader-serializer
    Symbol clojure-reader-serializer
-   Ratio clojure-reader-serializer))
+   Ratio clojure-reader-serializer
+   Var clojure-print-dup-serializer))
 
 (def java-primitives
   (array-map
    BigDecimal (BigDecimalSerializer.)
    BigInteger (BigIntegerSerializer.)
-   Date (DateSerializer.)
-   Timestamp timestamp-serializer
+   Date       (DateSerializer.)
+   Timestamp  timestamp-serializer
    java.sql.Date (sqldate-serializer java.sql.Date)
    java.sql.Time (sqldate-serializer java.sql.Time)
    URI uri-serializer
