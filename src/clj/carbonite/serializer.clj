@@ -3,17 +3,18 @@
   (:import [com.esotericsoftware.kryo Kryo Serializer SerializationException]
            [com.esotericsoftware.kryo.serialize StringSerializer
             MapSerializer IntSerializer
-            LongSerializer BigDecimalSerializer BigIntegerSerializer DateSerializer]
+            LongSerializer BigDecimalSerializer BigIntegerSerializer
+            DateSerializer]
            [java.io ByteArrayInputStream InputStream]
            [java.nio ByteBuffer BufferOverflowException]
            [java.math BigDecimal BigInteger]
            [java.net URI]
            [java.util Date UUID]
            [java.sql Time Timestamp]
-           [clojure.lang BigInt Keyword Symbol PersistentArrayMap
+           [clojure.lang Keyword Symbol PersistentArrayMap
             PersistentHashMap MapEntry PersistentStructMap 
-            PersistentVector PersistentHashSet
-            Cons PersistentList PersistentList$EmptyList
+            PersistentVector PersistentHashSet Ratio
+            Cons PersistentList PersistentList$EmptyList Var
             ArraySeq$ArraySeq_int LazySeq IteratorSeq StringSeq]))
 
 (defn clj-print
@@ -33,6 +34,16 @@
   clojure-reader-serializer
   (proxy [Serializer] []  
     (writeObjectData [buffer obj] (clj-print buffer obj))
+    (readObjectData [buffer type] (clj-read buffer))))
+
+(def ^{:doc "Define a serializer that utilizes the Clojure pr-str and
+  read-string functions to serialize/deserialize instances relying
+  solely on the printer/reader. Binds *print-dup* to true on read."}
+  clojure-print-dup-serializer
+  (proxy [Serializer] []  
+    (writeObjectData [buffer obj]
+      (binding [*print-dup* true]
+        (clj-print buffer obj)))
     (readObjectData [buffer type] (clj-read buffer))))
 
 (defn clojure-coll-serializer
@@ -83,7 +94,9 @@
      (if (zero? remaining)
        (persistent! data)
        (recur (dec remaining)
-              (assoc! data (.readClassAndObject registry buffer) (.readClassAndObject registry buffer)))))))
+              (assoc! data
+                      (.readClassAndObject registry buffer)
+                      (.readClassAndObject registry buffer)))))))
 
 (defn clojure-map-serializer
   "Create a Kryo serializer for an associative data structure."
@@ -135,20 +148,36 @@
       (let [constructor (.getConstructor klass (into-array Class [Long/TYPE]))]
         (.newInstance constructor (object-array [ (LongSerializer/get buffer true)]))))))
 
+(def ratio-serializer
+  (proxy [Serializer] []  
+    (writeObjectData [buffer ^Ratio obj]
+      (doto (BigIntegerSerializer.)
+        (.writeObjectData buffer (.numerator obj))
+        (.writeObjectData buffer (.denominator obj))))
+    (readObjectData [buffer type]
+      (let [^Serializer big (BigIntegerSerializer.)]
+        (Ratio. (.readObjectData big buffer nil)
+                (.readObjectData big buffer nil))))))
+
 (def ^{:doc "Define a map of Clojure primitives and their serializers
   to install."}
   clojure-primitives
-  (array-map
-   BigInt clojure-reader-serializer
-   Keyword clojure-reader-serializer
-   Symbol clojure-reader-serializer))
+  (let [prims (array-map
+               Keyword clojure-reader-serializer
+               Symbol clojure-reader-serializer
+               Ratio clojure-reader-serializer
+               Var clojure-print-dup-serializer)]
+    (if-let [big-int (try (Class/forName "clojure.lang.BigInt")
+                          (catch ClassNotFoundException _))]
+      (assoc prims big-int clojure-reader-serializer)
+      prims)))
 
 (def java-primitives
   (array-map
    BigDecimal (BigDecimalSerializer.)
    BigInteger (BigIntegerSerializer.)
-   Date (DateSerializer.)
-   Timestamp timestamp-serializer
+   Date       (DateSerializer.)
+   Timestamp  timestamp-serializer
    java.sql.Date (sqldate-serializer java.sql.Date)
    java.sql.Time (sqldate-serializer java.sql.Time)
    URI uri-serializer
