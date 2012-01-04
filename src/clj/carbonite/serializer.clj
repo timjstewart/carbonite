@@ -192,9 +192,10 @@
     [MapEntry (clojure-coll-serializer registry [])]]
 
    ;; list/seq collections
-   (zipmap [Cons PersistentList$EmptyList PersistentList LazySeq IteratorSeq ArraySeq]
-           (repeat (clojure-seq-serializer registry list)))
-
+   (map #(vector % (clojure-seq-serializer registry list))
+        [Cons PersistentList$EmptyList PersistentList
+         LazySeq IteratorSeq ArraySeq])
+   
    ;; other seqs
    [[StringSeq stringseq-serializer]]
    
