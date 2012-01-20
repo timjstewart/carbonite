@@ -8,3 +8,4 @@ pom.xml
 *.iws
 *.ipr
 .DS_Store
+.idea
