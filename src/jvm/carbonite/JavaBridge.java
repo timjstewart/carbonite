@@ -16,8 +16,7 @@ public class JavaBridge {
 
     static {
         try {
-            require.invoke(symbol.invoke("carbonite.api"));
-            require.invoke(symbol.invoke("carbonite.serializer"));
+            requireCarbonite();
         } catch (Exception e) {
             e.printStackTrace();
         }
@@ -43,6 +42,11 @@ public class JavaBridge {
 
     public static Kryo defaultRegistry() throws Exception {
         return (Kryo)defaultReg.invoke();
+    }
+
+    public static void requireCarbonite () {
+        require.invoke(symbol.invoke("carbonite.api"));
+        require.invoke(symbol.invoke("carbonite.serializer"));
     }
 
     public static void enhanceRegistry(Kryo registry) throws Exception {
