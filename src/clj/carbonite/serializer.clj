@@ -2,7 +2,8 @@
   (:require [clojure.string :as s])
   (:import [carbonite ClojureMapSerializer URISerializer UUIDSerializer
             TimestampSerializer SqlDateSerializer SqlTimeSerializer RatioSerializer
-            ClojureReaderSerializer]
+            ClojureReaderSerializer PrintDupSerializer StringSeqSerializer
+            ClojureVecSerializer ClojureSetSerializer ClojureSeqSerializer]
            [com.esotericsoftware.kryo Kryo Serializer SerializationException]
            [com.esotericsoftware.kryo.serialize StringSerializer
             MapSerializer IntSerializer
@@ -11,7 +12,6 @@
            [java.io ByteArrayInputStream InputStream]
            [java.nio ByteBuffer BufferOverflowException]
            [java.math BigDecimal BigInteger]
-           [java.net URI]
            [java.util Date UUID]
            [java.sql Time Timestamp]
            [clojure.lang Keyword Symbol PersistentArrayMap
@@ -25,49 +25,41 @@
   [buffer obj]
   (StringSerializer/put buffer (pr-str obj)))
 
+(defn clj-print-dup
+  "Use the Clojure pr-str to print an object into the buffer using
+   pr-str w/ *print-dup* bound to true."
+  [buffer obj]
+  (binding [*print-dup* true]
+    (clj-print buffer obj)))
+
 (defn clj-read
   "Use the Clojure read-string to read an object from a buffer."
   [buffer]
   (read-string (StringSerializer/get buffer)))
 
-(def ^{:doc "Define a serializer that utilizes the Clojure pr-str and
-  read-string functions to serialize/deserialize instances relying
-  solely on the printer/reader. Binds *print-dup* to true on read."}
-  clojure-print-dup-serializer
-  (proxy [Serializer] []  
-    (writeObjectData [buffer obj]
-      (binding [*print-dup* true]
-        (clj-print buffer obj)))
-    (readObjectData [buffer type] (clj-read buffer))))
+(defn print-collection
+  [^Kryo registry buffer coll]
+  (IntSerializer/put buffer (count coll) true)
+  (doseq [x coll]
+    (.writeClassAndObject registry buffer x)))
 
-(defn clojure-coll-serializer
-  "Create a collection Serializer that conj's to an initial collection."
-  [^Kryo registry init-coll]
-  (proxy [Serializer] []
-    (writeObjectData [buffer v]
-      (IntSerializer/put buffer (count v) true)
-      (doseq [x v] (.writeClassAndObject registry buffer x)))
-    (readObjectData [buffer type]
-      (doall
-       (loop [remaining (IntSerializer/get buffer true)
-              data (transient init-coll)]
-         (if (zero? remaining)
-           (persistent! data)
-           (recur (dec remaining)
-                  (conj! data (.readClassAndObject registry buffer)))))))))
+(defn read-seq
+  [^Kryo registry buffer]
+  (let [len (IntSerializer/get buffer true)]
+    (->> (repeatedly len #(.readClassAndObject registry buffer))
+         (apply list))))
 
-(defn clojure-seq-serializer
-  "Create a sequence Serializer that will apply the constructor function on
-   deserialization."
-  [^Kryo registry constructor-fn]
-  (proxy [Serializer] []
-    (writeObjectData [buffer s]
-      (IntSerializer/put buffer (count s) true)
-      (doseq [x s] (.writeClassAndObject registry buffer x)))
-    (readObjectData [buffer type]
-      (let [len (IntSerializer/get buffer true)]
-        (apply constructor-fn
-               (repeatedly len #(.readClassAndObject registry buffer)))))))
+(defn mk-collection-reader [init-coll]
+  (fn [^Kryo registry buffer]
+    (loop [remaining (IntSerializer/get buffer true)
+           data      (transient init-coll)]
+      (if (zero? remaining)
+        (persistent! data)
+        (recur (dec remaining)
+               (conj! data (.readClassAndObject registry buffer)))))))
+
+(def read-vector (mk-collection-reader []))
+(def read-set (mk-collection-reader #{}))
 
 (defn write-map
   "Write an associative data structure to Kryo's buffer. Write entry count as
@@ -92,19 +84,20 @@
                       (.readClassAndObject registry buffer)
                       (.readClassAndObject registry buffer)))))))
 
-(def stringseq-serializer
-  (proxy [Serializer] []
-    (writeObjectData [buffer stringseq] (StringSerializer/put buffer (s/join stringseq)))
-    (readObjectData [buffer type] (seq (StringSerializer/get buffer)))))
+(defn write-string-seq [buffer string-seq]
+  (StringSerializer/put buffer (s/join string-seq)))
+
+(defn read-string-seq [buffer]
+  (seq (StringSerializer/get buffer)))
 
 (def ^{:doc "Define a map of Clojure primitives and their serializers
   to install."}
   clojure-primitives
   (let [prims (array-map
                Keyword (ClojureReaderSerializer.)
-               Symbol (ClojureReaderSerializer.)
-               Ratio (RatioSerializer.)
-               Var clojure-print-dup-serializer)]
+               Symbol  (ClojureReaderSerializer.)
+               Ratio   (RatioSerializer.)
+               Var     (PrintDupSerializer.))]
     (if-let [big-int (try (Class/forName "clojure.lang.BigInt")
                           (catch ClassNotFoundException _))]
       (assoc prims big-int (ClojureReaderSerializer.))
@@ -118,24 +111,23 @@
    Timestamp  (TimestampSerializer.)
    java.sql.Date (SqlDateSerializer.)
    java.sql.Time (SqlTimeSerializer.)
-   URI  (URISerializer.)
+   java.net.URI  (URISerializer.)
    UUID (UUIDSerializer.)))
 
-(defn clojure-collections
-  [registry]
+(defn clojure-collections [registry]
   (concat
    ;; collections where we can use transients for perf
-   [[PersistentVector (clojure-coll-serializer registry [])]
-    [PersistentHashSet (clojure-coll-serializer registry #{})]
-    [MapEntry (clojure-coll-serializer registry [])]]
+   [[PersistentVector (ClojureVecSerializer. registry)]
+    [PersistentHashSet (ClojureSetSerializer. registry)]
+    [MapEntry (ClojureVecSerializer. registry)]]
 
    ;; list/seq collections
-   (map #(vector % (clojure-seq-serializer registry list))
+   (map #(vector % (ClojureSeqSerializer. registry))
         [Cons PersistentList$EmptyList PersistentList
          LazySeq IteratorSeq ArraySeq])
    
    ;; other seqs
-   [[StringSeq stringseq-serializer]]
+   [[StringSeq (StringSeqSerializer.)]]
    
    ;; maps - use transients for perf
    (map #(vector % (ClojureMapSerializer. registry))

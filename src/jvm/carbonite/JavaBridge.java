@@ -45,7 +45,6 @@ public class JavaBridge {
     }
 
     public static void requireCarbonite () {
-        require.invoke(symbol.invoke("carbonite.api"));
         require.invoke(symbol.invoke("carbonite.serializer"));
     }
 
