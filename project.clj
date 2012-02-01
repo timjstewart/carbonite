@@ -1,6 +1,6 @@
 (def shared '[[com.googlecode/kryo "1.04"]])
 
-(defproject cascalog/carbonite "1.1.0-SNAPSHOT"
+(defproject cascalog/carbonite "1.1.1"
   :source-path "src/clj"
   :java-source-path "src/jvm"
   :description "Write Clojure data to and from bytes using Kryo."

@@ -5,6 +5,7 @@
   (:import [java.nio ByteBuffer]
            [java.net URI]
            [java.util Date UUID]
+           [java.util.regex Pattern]
            [com.esotericsoftware.kryo Kryo SerializationException]))
 
 (defn round-trip [item]
@@ -19,27 +20,35 @@
   (doto (java.sql.Timestamp. time)
     (.setNanos nano)))
 
+(deftest test-round-trip-regex
+  (are [re] (let [^Pattern round-tripped (round-trip re)]
+              (is (= (.pattern re)
+                     (.pattern round-tripped))))
+       #"[^\s]+"
+       #"^([0-9\(\)\/\+ \-]*)$"
+       #"string"))
+
 (deftest test-round-trip-kryo
   (are [obj] (is (= obj (round-trip obj)))
        nil
-       1      ;; long
-       5.2    ;; double
-       #'+    ;; Var
-       5M     ;; BigDecimal
-       (/ 1 2) ;; Ratio
+       1         ;; long
+       5.2       ;; double
+       #'+       ;; Var
+       5M        ;; BigDecimal
+       (/ 1 2)   ;; Ratio
        1000000000000000000000000  ;; BigInt
-       :foo   ;; keyword
-       :a/foo ;; namespaced keyword
-       'foo   ;; symbol
-       'a/foo ;; namespaced symbol
-       []     ;; empty vector
-       [1 2]  ;; vector
-       '()    ;; empty list
-       '(1 2) ;; list
-       #{}    ;; empty set
-       #{1 2 3}  ;; set
-       {}     ;; empty map
-       {:a 1} ;; map
+       :foo        ;; keyword
+       :a/foo      ;; namespaced keyword
+       'foo        ;; symbol
+       'a/foo      ;; namespaced symbol
+       []          ;; empty vector
+       [1 2]       ;; vector
+       '()         ;; empty list
+       '(1 2)      ;; list
+       #{}         ;; empty set
+       #{1 2 3}    ;; set
+       {}          ;; empty map
+       {:a 1}      ;; map
        {:a 1 :b 2} ;; map
        {:a {:b {:c [1 #{"abc"} ]}}}  ;; nested collections
        (Date.)  ;; java.util.Date

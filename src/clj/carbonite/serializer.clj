@@ -3,7 +3,8 @@
   (:import [carbonite ClojureMapSerializer URISerializer UUIDSerializer
             TimestampSerializer SqlDateSerializer SqlTimeSerializer RatioSerializer
             ClojureReaderSerializer PrintDupSerializer StringSeqSerializer
-            ClojureVecSerializer ClojureSetSerializer ClojureSeqSerializer]
+            ClojureVecSerializer ClojureSetSerializer ClojureSeqSerializer
+            RegexSerializer]
            [com.esotericsoftware.kryo Kryo Serializer SerializationException]
            [com.esotericsoftware.kryo.serialize StringSerializer
             MapSerializer IntSerializer
@@ -13,6 +14,7 @@
            [java.nio ByteBuffer BufferOverflowException]
            [java.math BigDecimal BigInteger]
            [java.util Date UUID]
+           [java.util.regex Pattern]
            [java.sql Time Timestamp]
            [clojure.lang Keyword Symbol PersistentArrayMap
             PersistentHashMap MapEntry PersistentStructMap 
@@ -105,14 +107,15 @@
 
 (def java-primitives
   (array-map
-   BigDecimal (BigDecimalSerializer.)
-   BigInteger (BigIntegerSerializer.)
-   Date       (DateSerializer.)
-   Timestamp  (TimestampSerializer.)
+   BigDecimal    (BigDecimalSerializer.)
+   BigInteger    (BigIntegerSerializer.)
+   Date          (DateSerializer.)
+   Timestamp     (TimestampSerializer.)
    java.sql.Date (SqlDateSerializer.)
    java.sql.Time (SqlTimeSerializer.)
    java.net.URI  (URISerializer.)
-   UUID (UUIDSerializer.)))
+   Pattern       (RegexSerializer.)
+   UUID          (UUIDSerializer.)))
 
 (defn clojure-collections [registry]
   (concat
