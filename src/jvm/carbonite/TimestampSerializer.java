@@ -9,7 +9,6 @@ import java.sql.Timestamp;
 /** User: sritchie Date: 1/20/12 Time: 3:30 PM */
 public class TimestampSerializer extends Serializer {
 
-
     @Override public void writeObjectData(ByteBuffer byteBuffer, Object o) {
         Timestamp timestamp = (Timestamp) o;
         LongSerializer.put(byteBuffer, timestamp.getTime(), true);
