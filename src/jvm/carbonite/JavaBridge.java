@@ -5,8 +5,8 @@ import clojure.lang.Var;
 import com.esotericsoftware.kryo.Kryo;
 
 public class JavaBridge {
-    static Var require = RT.var("clojure.core", "require");
-    static Var symbol = RT.var("clojure.core", "symbol");
+    static final Var require = RT.var("clojure.core", "require");
+    static final Var symbol = RT.var("clojure.core", "symbol");
 
     static Var defaultReg;
     static Var regSerializers;
@@ -45,7 +45,7 @@ public class JavaBridge {
 
     public static Kryo defaultRegistry() throws Exception {
         initialize();
-        return (Kryo)defaultReg.invoke();
+        return (Kryo) defaultReg.invoke();
     }
 
     public static void requireCarbonite () {

@@ -2,9 +2,10 @@ package carbonite;
 
 import clojure.lang.RT;
 import clojure.lang.Var;
+import com.esotericsoftware.kryo.Kryo;
 import com.esotericsoftware.kryo.Serializer;
-
-import java.nio.ByteBuffer;
+import com.esotericsoftware.kryo.io.Input;
+import com.esotericsoftware.kryo.io.Output;
 
 /** User: sritchie Date: 1/20/12 Time: 3:57 PM
  *
@@ -14,9 +15,9 @@ import java.nio.ByteBuffer;
  * likely to work in many cases.
  *
  */
-public class ClojureReaderSerializer extends Serializer {
-    Var cljRead;
-    Var cljPrint;
+public class ClojureReaderSerializer implements Serializer {
+    final Var cljRead;
+    final Var cljPrint;
 
     public ClojureReaderSerializer() {
         JavaBridge.requireCarbonite();
@@ -24,11 +25,11 @@ public class ClojureReaderSerializer extends Serializer {
         cljPrint = RT.var("carbonite.serializer", "clj-print");
     }
 
-    @Override public void writeObjectData(ByteBuffer byteBuffer, Object o) {
-        cljPrint.invoke(byteBuffer, o);
+    public void write(Kryo kryo, Output output, Object o) {
+        cljPrint.invoke(output, o);
     }
 
-    @Override public <T> T readObjectData(ByteBuffer byteBuffer, Class<T> tClass) {
-        return (T) cljRead.invoke(byteBuffer);
+    public Object read(Kryo kryo, Input input, Class aClass) {
+        return cljRead.invoke(input);
     }
 }

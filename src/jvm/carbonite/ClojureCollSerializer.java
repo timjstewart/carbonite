@@ -4,22 +4,18 @@ import clojure.lang.RT;
 import clojure.lang.Var;
 import com.esotericsoftware.kryo.Kryo;
 import com.esotericsoftware.kryo.Serializer;
-
-import java.nio.ByteBuffer;
+import com.esotericsoftware.kryo.io.Output;
 
 /** User: sritchie Date: 1/21/12 Time: 8:01 PM */
-public abstract class ClojureCollSerializer extends Serializer {
-    Var printCollection;
-    Kryo kryo;
+public abstract class ClojureCollSerializer implements Serializer {
+    final Var printCollection;
     
-    public ClojureCollSerializer(Kryo k) {
+    public ClojureCollSerializer() {
         JavaBridge.requireCarbonite();
         printCollection = RT.var("carbonite.serializer", "print-collection");
-        this.kryo = k;
-
     }
 
-    @Override public void writeObjectData(ByteBuffer byteBuffer, Object o) {
-        printCollection.invoke(kryo, byteBuffer, o);
+    public void write(Kryo kryo, Output output, Object o) {
+        printCollection.invoke(kryo, output, o);
     }
 }

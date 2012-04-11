@@ -2,14 +2,15 @@ package carbonite;
 
 import clojure.lang.RT;
 import clojure.lang.Var;
+import com.esotericsoftware.kryo.Kryo;
 import com.esotericsoftware.kryo.Serializer;
-
-import java.nio.ByteBuffer;
+import com.esotericsoftware.kryo.io.Input;
+import com.esotericsoftware.kryo.io.Output;
 
 /** User: sritchie Date: 1/21/12 Time: 8:19 PM */
-public class StringSeqSerializer extends Serializer {
-    Var readStringSeq;
-    Var printStringSeq;
+public class StringSeqSerializer implements Serializer {
+    final Var readStringSeq;
+    final Var printStringSeq;
 
     public StringSeqSerializer() {
         JavaBridge.requireCarbonite();
@@ -17,11 +18,11 @@ public class StringSeqSerializer extends Serializer {
         printStringSeq = RT.var("carbonite.serializer", "write-string-seq");
     }
 
-    @Override public void writeObjectData(ByteBuffer byteBuffer, Object o) {
-        printStringSeq.invoke(byteBuffer, o);
+    public void write(Kryo kryo, Output output, Object o) {
+        printStringSeq.invoke(output, o);
     }
 
-    @Override public <T> T readObjectData(ByteBuffer byteBuffer, Class<T> tClass) {
-        return (T) readStringSeq.invoke(byteBuffer);
+    public Object read(Kryo kryo, Input input, Class aClass) {
+        return readStringSeq.invoke(input);
     }
 }

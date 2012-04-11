@@ -1,96 +1,92 @@
 (ns carbonite.serializer
   (:require [clojure.string :as s])
-  (:import [carbonite ClojureMapSerializer URISerializer UUIDSerializer
-            TimestampSerializer SqlDateSerializer SqlTimeSerializer RatioSerializer
+  (:import [carbonite ClojureMapSerializer RatioSerializer
             ClojureReaderSerializer PrintDupSerializer StringSeqSerializer
-            ClojureVecSerializer ClojureSetSerializer ClojureSeqSerializer
-            RegexSerializer]
-           [com.esotericsoftware.kryo Kryo Serializer SerializationException]
-           [com.esotericsoftware.kryo.serialize StringSerializer
-            MapSerializer IntSerializer
-            LongSerializer BigDecimalSerializer BigIntegerSerializer
-            DateSerializer]
-           [java.io ByteArrayInputStream InputStream]
-           [java.nio ByteBuffer BufferOverflowException]
-           [java.math BigDecimal BigInteger]
-           [java.util Date UUID]
+            ClojureVecSerializer ClojureSetSerializer ClojureSeqSerializer]
+           [com.twitter.meatlocker.kryo  RegexSerializer SqlDateSerializer
+            SqlTimeSerializer TimestampSerializer URISerializer UUIDSerializer]
+           [com.esotericsoftware.kryo Kryo]
+           [com.esotericsoftware.kryo.io Input Output]
+           [java.util UUID]
            [java.util.regex Pattern]
            [java.sql Time Timestamp]
            [clojure.lang Keyword Symbol PersistentArrayMap
             PersistentHashMap MapEntry PersistentStructMap 
             PersistentVector PersistentHashSet Ratio ArraySeq
             Cons PersistentList PersistentList$EmptyList Var
-            ArraySeq$ArraySeq_int LazySeq IteratorSeq StringSeq]))
+            LazySeq IteratorSeq StringSeq]))
 
 (defn clj-print
-  "Use the Clojure pr-str to print an object into the buffer using pr-str."
-  [buffer obj]
-  (StringSerializer/put buffer (pr-str obj)))
+  "Use the Clojure pr-str to print an object into the Output using
+  pr-str."
+  [^Output output obj]
+  (.writeString output (pr-str obj)))
 
 (defn clj-print-dup
   "Use the Clojure pr-str to print an object into the buffer using
    pr-str w/ *print-dup* bound to true."
-  [buffer obj]
+  [output obj]
   (binding [*print-dup* true]
-    (clj-print buffer obj)))
+    (clj-print output obj)))
 
 (defn clj-read
   "Use the Clojure read-string to read an object from a buffer."
-  [buffer]
-  (read-string (StringSerializer/get buffer)))
+  [^Input input]
+  (read-string (.readString input)))
 
 (defn print-collection
-  [^Kryo registry buffer coll]
-  (IntSerializer/put buffer (count coll) true)
+  [^Kryo registry ^Output output coll]
+  (.writeInt output (count coll) true)
   (doseq [x coll]
-    (.writeClassAndObject registry buffer x)))
+    (.writeClassAndObject registry output x)))
 
 (defn read-seq
-  [^Kryo registry buffer]
-  (let [len (IntSerializer/get buffer true)]
-    (->> (repeatedly len #(.readClassAndObject registry buffer))
+  [^Kryo registry ^Input input]
+  (let [len (.readInt input true)]
+    (->> (repeatedly len #(.readClassAndObject registry input))
          (apply list))))
 
 (defn mk-collection-reader [init-coll]
-  (fn [^Kryo registry buffer]
-    (loop [remaining (IntSerializer/get buffer true)
+  ;; TODO: Accept Kryo and Input
+  (fn [^Kryo registry ^Input input]
+    (loop [remaining (.readInt input true)
            data      (transient init-coll)]
       (if (zero? remaining)
         (persistent! data)
         (recur (dec remaining)
-               (conj! data (.readClassAndObject registry buffer)))))))
+               (conj! data (.readClassAndObject registry input)))))))
 
 (def read-vector (mk-collection-reader []))
-(def read-set (mk-collection-reader #{}))
+(def read-set    (mk-collection-reader #{}))
 
 (defn write-map
-  "Write an associative data structure to Kryo's buffer. Write entry count as
-   an int, then serialize alternating key/value pairs."
-  [^Kryo registry ^ByteBuffer buffer m]
-  (IntSerializer/put buffer (count m) true)
+  "Write an associative data structure to Kryo's buffer. Write entry
+   count as an int, then serialize alternating key/value pairs."
+  [^Kryo registry ^Output output m]
+  (.writeInt output (count m) true)
   (doseq [[k v] m]
-    (.writeClassAndObject registry buffer k)
-    (.writeClassAndObject registry buffer v)))
+    (.writeClassAndObject registry output k)
+    (.writeClassAndObject registry output v)))
 
 (defn read-map
   "Read a map from Kryo's buffer.  Read entry count, then deserialize alternating
    key/value pairs.  Transients are used for performance."
-  [^Kryo registry ^ByteBuffer buffer]
+  [^Kryo registry ^Input input]
   (doall
-   (loop [remaining (IntSerializer/get buffer true)
-          data (transient {})]
+   (loop [remaining (.readInt input true)
+          data      (transient {})]
      (if (zero? remaining)
        (persistent! data)
        (recur (dec remaining)
               (assoc! data
-                      (.readClassAndObject registry buffer)
-                      (.readClassAndObject registry buffer)))))))
+                      (.readClassAndObject registry input)
+                      (.readClassAndObject registry input)))))))
 
-(defn write-string-seq [buffer string-seq]
-  (StringSerializer/put buffer (s/join string-seq)))
+(defn write-string-seq [^Output output string-seq]
+  (.writeString output (s/join string-seq)))
 
-(defn read-string-seq [buffer]
-  (seq (StringSerializer/get buffer)))
+(defn read-string-seq [^Input input]
+  (seq (.readString input)))
 
 (def ^{:doc "Define a map of Clojure primitives and their serializers
   to install."}
@@ -107,9 +103,6 @@
 
 (def java-primitives
   (array-map
-   BigDecimal    (BigDecimalSerializer.)
-   BigInteger    (BigIntegerSerializer.)
-   Date          (DateSerializer.)
    Timestamp     (TimestampSerializer.)
    java.sql.Date (SqlDateSerializer.)
    java.sql.Time (SqlTimeSerializer.)
@@ -117,15 +110,15 @@
    Pattern       (RegexSerializer.)
    UUID          (UUIDSerializer.)))
 
-(defn clojure-collections [registry]
+(def clojure-collections
   (concat
    ;; collections where we can use transients for perf
-   [[PersistentVector (ClojureVecSerializer. registry)]
-    [PersistentHashSet (ClojureSetSerializer. registry)]
-    [MapEntry (ClojureVecSerializer. registry)]]
+   [[PersistentVector (ClojureVecSerializer.)]
+    [PersistentHashSet (ClojureSetSerializer.)]
+    [MapEntry (ClojureVecSerializer.)]]
 
    ;; list/seq collections
-   (map #(vector % (ClojureSeqSerializer. registry))
+   (map #(vector % (ClojureSeqSerializer.))
         [Cons PersistentList$EmptyList PersistentList
          LazySeq IteratorSeq ArraySeq])
    
@@ -133,7 +126,7 @@
    [[StringSeq (StringSeqSerializer.)]]
    
    ;; maps - use transients for perf
-   (map #(vector % (ClojureMapSerializer. registry))
+   (map #(vector % (ClojureMapSerializer.))
         [PersistentArrayMap PersistentHashMap PersistentStructMap])))
 
 ;; Copyright 2011 Revelytix, Inc.
