@@ -28,6 +28,7 @@ public class JavaBridge {
         javaPrimitives = RT.var("carbonite.serializer", "java-primitives");
         cljCollections = RT.var("carbonite.serializer", "clojure-collections");
     }
+
     public static void registerPrimitives(Kryo registry) throws Exception {
         initialize();
         regSerializers.invoke(registry, cljPrimitives.deref());
@@ -35,7 +36,7 @@ public class JavaBridge {
 
     public static void registerCollections(Kryo registry) throws Exception {
         initialize();
-        regSerializers.invoke(registry, cljCollections.invoke(registry));
+        regSerializers.invoke(registry, cljCollections.deref());
     }
 
     public static void registerJavaPrimitives(Kryo registry) throws Exception {
