@@ -9,7 +9,7 @@ import com.esotericsoftware.kryo.Serializer;
 import com.esotericsoftware.kryo.io.Input;
 import com.esotericsoftware.kryo.io.Output;
 
-public class ClojureMapSerializer implements Serializer {
+public class ClojureMapSerializer extends Serializer {
     final Var writeMap;
     final Var readMap;
 
@@ -23,7 +23,7 @@ public class ClojureMapSerializer implements Serializer {
         writeMap.invoke(kryo, output, o);
     }
 
-    public Object read(Kryo kryo, Input input, Class aClass) {
+    public Object create(Kryo kryo, Input input, Class aClass) {
         return readMap.invoke(kryo, input);
     }
 }

@@ -8,7 +8,7 @@ import com.esotericsoftware.kryo.io.Input;
 import com.esotericsoftware.kryo.io.Output;
 
 /** User: sritchie Date: 1/21/12 Time: 7:57 PM */
-public class PrintDupSerializer implements Serializer {
+public class PrintDupSerializer extends Serializer {
     final Var cljRead;
     final Var cljPrintDup;
 
@@ -22,7 +22,7 @@ public class PrintDupSerializer implements Serializer {
         cljPrintDup.invoke(output, o);
     }
 
-    public Object read(Kryo kryo, Input input, Class aClass) {
+    public Object create(Kryo kryo, Input input, Class aClass) {
         return cljRead.invoke(input);
     }
 }

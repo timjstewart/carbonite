@@ -8,7 +8,7 @@ import com.esotericsoftware.kryo.io.Input;
 import com.esotericsoftware.kryo.io.Output;
 
 /** User: sritchie Date: 1/21/12 Time: 8:19 PM */
-public class StringSeqSerializer implements Serializer {
+public class StringSeqSerializer extends Serializer {
     final Var readStringSeq;
     final Var printStringSeq;
 
@@ -22,7 +22,7 @@ public class StringSeqSerializer implements Serializer {
         printStringSeq.invoke(output, o);
     }
 
-    public Object read(Kryo kryo, Input input, Class aClass) {
+    public Object create(Kryo kryo, Input input, Class aClass) {
         return readStringSeq.invoke(input);
     }
 }

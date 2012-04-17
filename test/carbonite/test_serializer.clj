@@ -9,11 +9,11 @@
 
 ;; Create a custom serializer for the two fields of LightSaber
 (def saber-serializer
-  (reify Serializer
-    (write [_ kryo output saber]
+  (proxy [Serializer] []
+    (write [kryo output saber]
       (clj-print output (:style saber))
       (clj-print output (:color saber)))
-    (read [_ kryo input type]
+    (create [kryo input type]
       (LightSaber. (clj-read input)
                    (clj-read input)))))
 

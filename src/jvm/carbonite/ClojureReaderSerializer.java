@@ -15,7 +15,7 @@ import com.esotericsoftware.kryo.io.Output;
  * likely to work in many cases.
  *
  */
-public class ClojureReaderSerializer implements Serializer {
+public class ClojureReaderSerializer extends Serializer {
     final Var cljRead;
     final Var cljPrint;
 
@@ -29,7 +29,7 @@ public class ClojureReaderSerializer implements Serializer {
         cljPrint.invoke(output, o);
     }
 
-    public Object read(Kryo kryo, Input input, Class aClass) {
+    public Object create(Kryo kryo, Input input, Class aClass) {
         return cljRead.invoke(input);
     }
 }

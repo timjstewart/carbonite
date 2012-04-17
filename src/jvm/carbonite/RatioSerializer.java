@@ -10,7 +10,7 @@ import com.esotericsoftware.kryo.serializers.DefaultSerializers;
 import java.math.BigInteger;
 
 /** User: sritchie Date: 1/20/12 Time: 3:49 PM */
-public class RatioSerializer implements Serializer<Ratio> {
+public class RatioSerializer extends Serializer<Ratio> {
     final DefaultSerializers.BigIntegerSerializer big  = new DefaultSerializers.BigIntegerSerializer();
 
 
@@ -19,9 +19,9 @@ public class RatioSerializer implements Serializer<Ratio> {
         big.write(k, output, ratio.denominator);
     }
 
-    public Ratio read(Kryo kryo, Input input, Class<Ratio> ratioClass) {
-        BigInteger num = big.read(kryo, input, null);
-        BigInteger denom = big.read(kryo, input, null);
+    public Ratio create(Kryo kryo, Input input, Class<Ratio> ratioClass) {
+        BigInteger num = big.create(kryo, input, null);
+        BigInteger denom = big.create(kryo, input, null);
 
         return new Ratio(num, denom);
     }
