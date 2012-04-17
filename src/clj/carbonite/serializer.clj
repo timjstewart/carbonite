@@ -1,206 +1,132 @@
 (ns carbonite.serializer
   (:require [clojure.string :as s])
-  (:import [com.esotericsoftware.kryo Kryo Serializer SerializationException]
-           [com.esotericsoftware.kryo.serialize StringSerializer
-            MapSerializer IntSerializer
-            LongSerializer BigDecimalSerializer BigIntegerSerializer
-            DateSerializer]
-           [java.io ByteArrayInputStream InputStream]
-           [java.nio ByteBuffer BufferOverflowException]
-           [java.math BigDecimal BigInteger]
-           [java.net URI]
-           [java.util Date UUID]
+  (:import [carbonite ClojureMapSerializer RatioSerializer
+            ClojureReaderSerializer PrintDupSerializer StringSeqSerializer
+            ClojureVecSerializer ClojureSetSerializer ClojureSeqSerializer]
+           [com.twitter.meatlocker.kryo  RegexSerializer SqlDateSerializer
+            SqlTimeSerializer TimestampSerializer URISerializer UUIDSerializer]
+           [com.esotericsoftware.kryo Kryo]
+           [com.esotericsoftware.kryo.io Input Output]
+           [java.util UUID]
+           [java.util.regex Pattern]
            [java.sql Time Timestamp]
            [clojure.lang Keyword Symbol PersistentArrayMap
             PersistentHashMap MapEntry PersistentStructMap 
             PersistentVector PersistentHashSet Ratio ArraySeq
             Cons PersistentList PersistentList$EmptyList Var
-            ArraySeq$ArraySeq_int LazySeq IteratorSeq StringSeq]))
+            LazySeq IteratorSeq StringSeq]))
 
 (defn clj-print
-  "Use the Clojure pr-str to print an object into the buffer using pr-str."
-  [buffer obj]
-  (StringSerializer/put buffer (pr-str obj)))
+  "Use the Clojure pr-str to print an object into the Output using
+  pr-str."
+  [^Output output obj]
+  (.writeString output (pr-str obj)))
+
+(defn clj-print-dup
+  "Use the Clojure pr-str to print an object into the buffer using
+   pr-str w/ *print-dup* bound to true."
+  [output obj]
+  (binding [*print-dup* true]
+    (clj-print output obj)))
 
 (defn clj-read
   "Use the Clojure read-string to read an object from a buffer."
-  [buffer]
-  (read-string (StringSerializer/get buffer)))
+  [^Input input]
+  (read-string (.readString input)))
 
-(def ^{:doc "Define a serializer that utilizes the Clojure pr-str and
-  read-string functions to serialize/deserialize instances relying
-  solely on the printer/reader.  Probably not the most efficient but
-  likely to work in many cases."}
-  clojure-reader-serializer
-  (proxy [Serializer] []  
-    (writeObjectData [buffer obj] (clj-print buffer obj))
-    (readObjectData [buffer type] (clj-read buffer))))
+(defn print-collection
+  [^Kryo registry ^Output output coll]
+  (.writeInt output (count coll) true)
+  (doseq [x coll]
+    (.writeClassAndObject registry output x)))
 
-(def ^{:doc "Define a serializer that utilizes the Clojure pr-str and
-  read-string functions to serialize/deserialize instances relying
-  solely on the printer/reader. Binds *print-dup* to true on read."}
-  clojure-print-dup-serializer
-  (proxy [Serializer] []  
-    (writeObjectData [buffer obj]
-      (binding [*print-dup* true]
-        (clj-print buffer obj)))
-    (readObjectData [buffer type] (clj-read buffer))))
+(defn read-seq
+  [^Kryo registry ^Input input]
+  (let [len (.readInt input true)]
+    (->> (repeatedly len #(.readClassAndObject registry input))
+         (apply list))))
 
-(defn clojure-coll-serializer
-  "Create a collection Serializer that conj's to an initial collection."
-  [^Kryo registry init-coll]
-  (proxy [Serializer] []
-    (writeObjectData [buffer v]
-      (IntSerializer/put buffer (count v) true)
-      (doseq [x v] (.writeClassAndObject registry buffer x)))
-    (readObjectData [buffer type]
-      (doall
-       (loop [remaining (IntSerializer/get buffer true)
-              data (transient init-coll)]
-         (if (zero? remaining)
-           (persistent! data)
-           (recur (dec remaining)
-                  (conj! data (.readClassAndObject registry buffer)))))))))
+(defn mk-collection-reader [init-coll]
+  ;; TODO: Accept Kryo and Input
+  (fn [^Kryo registry ^Input input]
+    (loop [remaining (.readInt input true)
+           data      (transient init-coll)]
+      (if (zero? remaining)
+        (persistent! data)
+        (recur (dec remaining)
+               (conj! data (.readClassAndObject registry input)))))))
 
-(defn clojure-seq-serializer
-  "Create a sequence Serializer that will apply the constructor function on
-   deserialization."
-  [^Kryo registry constructor-fn]
-  (proxy [Serializer] []
-    (writeObjectData [buffer s]
-      (IntSerializer/put buffer (count s) true)
-      (doseq [x s] (.writeClassAndObject registry buffer x)))
-    (readObjectData [buffer type]
-      (let [len (IntSerializer/get buffer true)]
-        (apply constructor-fn
-               (repeatedly len #(.readClassAndObject registry buffer)))))))
+(def read-vector (mk-collection-reader []))
+(def read-set    (mk-collection-reader #{}))
 
-(defn- write-map
-  "Write an associative data structure to Kryo's buffer. Write entry count as
-   an int, then serialize alternating key/value pairs."
-  [^Kryo registry ^ByteBuffer buffer m]
-  (IntSerializer/put buffer (count m) true)
+(defn write-map
+  "Write an associative data structure to Kryo's buffer. Write entry
+   count as an int, then serialize alternating key/value pairs."
+  [^Kryo registry ^Output output m]
+  (.writeInt output (count m) true)
   (doseq [[k v] m]
-    (.writeClassAndObject registry buffer k)
-    (.writeClassAndObject registry buffer v))  )
+    (.writeClassAndObject registry output k)
+    (.writeClassAndObject registry output v)))
 
-(defn- read-map
+(defn read-map
   "Read a map from Kryo's buffer.  Read entry count, then deserialize alternating
    key/value pairs.  Transients are used for performance."
-  [^Kryo registry ^ByteBuffer buffer]
+  [^Kryo registry ^Input input]
   (doall
-   (loop [remaining (IntSerializer/get buffer true)
-          data (transient {})]
+   (loop [remaining (.readInt input true)
+          data      (transient {})]
      (if (zero? remaining)
        (persistent! data)
        (recur (dec remaining)
               (assoc! data
-                      (.readClassAndObject registry buffer)
-                      (.readClassAndObject registry buffer)))))))
+                      (.readClassAndObject registry input)
+                      (.readClassAndObject registry input)))))))
 
-(defn clojure-map-serializer
-  "Create a Kryo serializer for an associative data structure."
-  [^Kryo registry]
-  (proxy [Serializer] []
-    (writeObjectData [buffer m] (write-map registry buffer m))
-    (readObjectData [^ByteBuffer buffer type] (read-map registry buffer))))
+(defn write-string-seq [^Output output string-seq]
+  (.writeString output (s/join string-seq)))
 
-(def stringseq-serializer
-  (proxy [Serializer] []
-    (writeObjectData [buffer stringseq] (StringSerializer/put buffer (s/join stringseq)))
-    (readObjectData [buffer type] (seq (StringSerializer/get buffer)))))
-
-(def ^{:doc "Define a Kryo Serializer for java.net.URI."}
-  uri-serializer
-  (proxy [Serializer] []
-    (writeObjectData [buffer ^URI uri]
-      (StringSerializer/put buffer (.toString uri)))
-    (readObjectData [buffer type]
-      (URI/create (StringSerializer/get buffer)))))
-
-(def ^{:doc "Define a Kryo Serializer for java.net.UUID."}
-  uuid-serializer
-  (proxy [Serializer] []
-    (writeObjectData [buffer ^UUID uuid]
-      (LongSerializer/put buffer (.getMostSignificantBits uuid) false)
-      (LongSerializer/put buffer (.getLeastSignificantBits uuid) false))
-    (readObjectData [buffer type]
-      (UUID. (LongSerializer/get buffer false)
-             (LongSerializer/get buffer false)))))
-
-(def ^{:doc "Define a Kryo Serializer for java.sql.Timestamp"}
-  timestamp-serializer
-  (proxy [Serializer] []
-    (writeObjectData [buffer ^Timestamp ts]
-      (LongSerializer/put buffer (.getTime ts) true)
-      (LongSerializer/put buffer (.getNanos ts) true))
-    (readObjectData [buffer type]
-      (doto (Timestamp. (LongSerializer/get buffer true))
-        (.setNanos (LongSerializer/get buffer true))))))
-
-(defn sqldate-serializer
-  "Create a java.sql.Date or java.sql.Time Kryo Serializer."
-  [^Class klass]
-  (proxy [Serializer] []
-    (writeObjectData [buffer ^Date d]
-      (LongSerializer/put buffer (.getTime d) true))
-    (readObjectData [buffer type]
-      (let [constructor (.getConstructor klass (into-array Class [Long/TYPE]))]
-        (.newInstance constructor (object-array [ (LongSerializer/get buffer true)]))))))
-
-(def ratio-serializer
-  (proxy [Serializer] []  
-    (writeObjectData [buffer ^Ratio obj]
-      (doto (BigIntegerSerializer.)
-        (.writeObjectData buffer (.numerator obj))
-        (.writeObjectData buffer (.denominator obj))))
-    (readObjectData [buffer type]
-      (let [^Serializer big (BigIntegerSerializer.)]
-        (Ratio. (.readObjectData big buffer nil)
-                (.readObjectData big buffer nil))))))
+(defn read-string-seq [^Input input]
+  (seq (.readString input)))
 
 (def ^{:doc "Define a map of Clojure primitives and their serializers
   to install."}
   clojure-primitives
   (let [prims (array-map
-               Keyword clojure-reader-serializer
-               Symbol clojure-reader-serializer
-               Ratio clojure-reader-serializer
-               Var clojure-print-dup-serializer)]
+               Keyword (ClojureReaderSerializer.)
+               Symbol  (ClojureReaderSerializer.)
+               Ratio   (RatioSerializer.)
+               Var     (PrintDupSerializer.))]
     (if-let [big-int (try (Class/forName "clojure.lang.BigInt")
                           (catch ClassNotFoundException _))]
-      (assoc prims big-int clojure-reader-serializer)
+      (assoc prims big-int (ClojureReaderSerializer.))
       prims)))
 
 (def java-primitives
   (array-map
-   BigDecimal (BigDecimalSerializer.)
-   BigInteger (BigIntegerSerializer.)
-   Date       (DateSerializer.)
-   Timestamp  timestamp-serializer
-   java.sql.Date (sqldate-serializer java.sql.Date)
-   java.sql.Time (sqldate-serializer java.sql.Time)
-   URI uri-serializer
-   UUID uuid-serializer))
+   Timestamp     (TimestampSerializer.)
+   java.sql.Date (SqlDateSerializer.)
+   java.sql.Time (SqlTimeSerializer.)
+   java.net.URI  (URISerializer.)
+   Pattern       (RegexSerializer.)
+   UUID          (UUIDSerializer.)))
 
-(defn clojure-collections
-  [registry]
+(def clojure-collections
   (concat
    ;; collections where we can use transients for perf
-   [[PersistentVector (clojure-coll-serializer registry [])]
-    [PersistentHashSet (clojure-coll-serializer registry #{})]
-    [MapEntry (clojure-coll-serializer registry [])]]
+   [[PersistentVector (ClojureVecSerializer.)]
+    [PersistentHashSet (ClojureSetSerializer.)]
+    [MapEntry (ClojureVecSerializer.)]]
 
    ;; list/seq collections
-   (map #(vector % (clojure-seq-serializer registry list))
+   (map #(vector % (ClojureSeqSerializer.))
         [Cons PersistentList$EmptyList PersistentList
          LazySeq IteratorSeq ArraySeq])
    
    ;; other seqs
-   [[StringSeq stringseq-serializer]]
+   [[StringSeq (StringSeqSerializer.)]]
    
    ;; maps - use transients for perf
-   (map #(vector % (clojure-map-serializer registry))
+   (map #(vector % (ClojureMapSerializer.))
         [PersistentArrayMap PersistentHashMap PersistentStructMap])))
 
 ;; Copyright 2011 Revelytix, Inc.
