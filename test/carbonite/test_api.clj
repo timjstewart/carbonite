@@ -1,16 +1,15 @@
 (ns carbonite.test-api
-  (:use [carbonite.api]
-        [carbonite.buffer]
-        [clojure.test])
+  (:use clojure.test
+        [carbonite api buffer])
   (:import [java.nio ByteBuffer]
            [java.net URI]
            [java.util Date UUID]
            [java.util.regex Pattern]
-           [com.esotericsoftware.kryo Kryo SerializationException]))
+           [com.esotericsoftware.kryo Kryo]))
 
 (defn round-trip [item]
-  (clear-context)
-  (let [kryo (default-registry)
+  (let [kryo (doto (default-registry)
+               (clear-context))
         bytes (write-bytes kryo item)]
     (read-bytes kryo bytes)))
 
@@ -75,7 +74,6 @@
         iseq (iterator-seq iter)
         rt-item (round-trip iseq)]
     (is (= ["abc"] rt-item))))
-
 
 ;; Copyright 2011 Revelytix, Inc.
 ;;

@@ -6,26 +6,24 @@ import clojure.lang.RT;
 import clojure.lang.Var;
 import com.esotericsoftware.kryo.Kryo;
 import com.esotericsoftware.kryo.Serializer;
-
-import java.nio.ByteBuffer;
+import com.esotericsoftware.kryo.io.Input;
+import com.esotericsoftware.kryo.io.Output;
 
 public class ClojureMapSerializer extends Serializer {
-    Var writeMap;
-    Var readMap;
-    Kryo kryo;
+    final Var writeMap;
+    final Var readMap;
 
-    public ClojureMapSerializer(Kryo k) {
+    public ClojureMapSerializer() {
         JavaBridge.requireCarbonite();
         writeMap = RT.var("carbonite.serializer", "write-map");
         readMap = RT.var("carbonite.serializer", "read-map");
-        this.kryo = k;
     }
 
-    @Override public void writeObjectData(ByteBuffer byteBuffer, Object o) {
-        writeMap.invoke(kryo, byteBuffer, o);
+    public void write(Kryo kryo, Output output, Object o) {
+        writeMap.invoke(kryo, output, o);
     }
 
-    @Override public <T> T readObjectData(ByteBuffer byteBuffer, Class<T> tClass) {
-        return (T) readMap.invoke(kryo, byteBuffer);
+    public Object create(Kryo kryo, Input input, Class aClass) {
+        return readMap.invoke(kryo, input);
     }
 }

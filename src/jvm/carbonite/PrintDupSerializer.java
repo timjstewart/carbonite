@@ -2,14 +2,15 @@ package carbonite;
 
 import clojure.lang.RT;
 import clojure.lang.Var;
+import com.esotericsoftware.kryo.Kryo;
 import com.esotericsoftware.kryo.Serializer;
-
-import java.nio.ByteBuffer;
+import com.esotericsoftware.kryo.io.Input;
+import com.esotericsoftware.kryo.io.Output;
 
 /** User: sritchie Date: 1/21/12 Time: 7:57 PM */
 public class PrintDupSerializer extends Serializer {
-    Var cljRead;
-    Var cljPrintDup;
+    final Var cljRead;
+    final Var cljPrintDup;
 
     public PrintDupSerializer() {
         JavaBridge.requireCarbonite();
@@ -17,11 +18,11 @@ public class PrintDupSerializer extends Serializer {
         cljPrintDup = RT.var("carbonite.serializer", "clj-print-dup");
     }
 
-    @Override public void writeObjectData(ByteBuffer byteBuffer, Object o) {
-        cljPrintDup.invoke(byteBuffer, o);
+    public void write(Kryo kryo, Output output, Object o) {
+        cljPrintDup.invoke(output, o);
     }
 
-    @Override public <T> T readObjectData(ByteBuffer byteBuffer, Class<T> tClass) {
-        return (T) cljRead.invoke(byteBuffer);
+    public Object create(Kryo kryo, Input input, Class aClass) {
+        return cljRead.invoke(input);
     }
 }

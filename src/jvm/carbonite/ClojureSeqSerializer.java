@@ -3,19 +3,17 @@ package carbonite;
 import clojure.lang.RT;
 import clojure.lang.Var;
 import com.esotericsoftware.kryo.Kryo;
-
-import java.nio.ByteBuffer;
+import com.esotericsoftware.kryo.io.Input;
 
 /** User: sritchie Date: 1/21/12 Time: 8:09 PM */
 public class ClojureSeqSerializer extends ClojureCollSerializer {
-    Var readSeq;
+    final Var readSeq;
 
-    public ClojureSeqSerializer(Kryo k) {
-        super(k);
+    public ClojureSeqSerializer() {
         readSeq = RT.var("carbonite.serializer", "read-seq");
     }
 
-    @Override public <T> T readObjectData(ByteBuffer byteBuffer, Class<T> tClass) {
-        return (T) readSeq.invoke(kryo, byteBuffer);
+    public Object create(Kryo kryo, Input input, Class aClass) {
+        return readSeq.invoke(kryo, input);
     }
 }

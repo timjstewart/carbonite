@@ -13,29 +13,12 @@
     (.register registry klass serializer))
   registry)
 
-(defn register-generic
-  "Default behavior of Kryo's handleUnregisteredClass method."
-  [klass ^Kryo registry]
-  (let [serializer (.newSerializer registry klass)]
-    (.register registry klass serializer true)))
-
-;; first item *is* the class of the unregistered object type
-(defmulti kryo-extend (fn [klass registry] klass))
-
-;; kryo-extend defaults to standard behavior.
-(defmethod kryo-extend :default
-  [klass registry]
-  (register-generic klass registry))
-
 (defn new-registry
   "Create a new Kryo registry that supports unregistered classes and defers to the
    kryo-extend multimethod if an unhandled Class serializer is requested."
   []
-  (let [registry (proxy [Kryo] []
-                   (handleUnregisteredClass [^Class klass]
-                     (kryo-extend klass this)))]
-    (doto registry
-      (.setRegistrationOptional true))))
+  (doto (Kryo.)
+    (.setRegistrationRequired false)))
 
 (defn default-registry
   "Create or install a set of default serializers in an existing
@@ -46,7 +29,7 @@
      (doto registry
        (register-serializers clojure-primitives)
        (register-serializers java-primitives)
-       (register-serializers (clojure-collections registry)))))
+       (register-serializers clojure-collections))))
 
 ;;;; APIs to read and write objects using ByteBuffers
 
@@ -56,8 +39,8 @@
   (ByteBuffer/allocate size))
 
 (defn write-buffer
-  "Write serialized obj into ByteBuffer using registry.  If the buffer is not big enough,
-   a SerializationException will be thrown."
+  "Write serialized obj into ByteBuffer using registry.  If the buffer
+  is not big enough, a SerializationException will be thrown."
   [^Kryo registry byte-buffer obj]
   (.writeClassAndObject registry byte-buffer obj))
 

@@ -1,6 +1,7 @@
 (ns carbonite.buffer
   (:use [carbonite.api :only (read-buffer)])
-  (:import [com.esotericsoftware.kryo Kryo Serializer SerializationException]
+  (:import [com.esotericsoftware.kryo Kryo Serializer KryoException]
+           [com.esotericsoftware.kryo.io Input Output]
            [java.io ByteArrayInputStream InputStream]
            [java.nio ByteBuffer BufferOverflowException]))
 
@@ -10,18 +11,18 @@
 
 (defn get-from-context
   "Get a thread-local object from Kryo."
-  []
-  (.get (Kryo/getContext) context-key))
+  [^Kryo registry]
+  (.get (.getContext registry) context-key))
 
 (defn put-to-context
   "Put a thread-local object to Kryo."
-  [value]
-  (.put (Kryo/getContext) context-key value))
+  [^Kryo registry value]
+  (.put (.getContext registry) context-key value))
 
 (defn clear-context
   "Clear the thread-local object in Kryo."
-  []
-  (put-to-context nil))
+  [registry]
+  (put-to-context registry nil))
 
 ;;;; cached buffer settings
 
@@ -32,10 +33,10 @@
 (defn ensure-buffer
   "Create or return a Thread-specific scratch buffer for a kryo registry"
   [registry]
-  (if-let [buffer (get-from-context)]
+  (if-let [buffer (get-from-context registry)]
     buffer
     (let [new-buffer (ByteBuffer/allocate *initial-buffer*)]
-      (put-to-context new-buffer)
+      (put-to-context registry new-buffer)
       new-buffer)))
 
 (defn- extract-bytes
@@ -48,40 +49,60 @@
     (.get read-buffer bytes)
     bytes))
 
-(defn write-with-cached-buffer
+;; TODO: Upgrade.
+#_(defn write-with-cached-buffer
   "Write the item into the buffer using the kryo registry.  If
    start-buffer is not big enough, double it up to *max-buffer*.  If it
    still won't fit, throw a SerializationException.  Return the byte[]
    and the buffer to cache for next time."
   [^Kryo registry ^ByteBuffer buffer item]
   (.clear buffer)
-  (try
-    (.writeClassAndObject registry buffer item)
-    [(extract-bytes buffer 0 (.position buffer))
-     (if (<= (.capacity buffer) *keep-buffer*) buffer nil)]
-    (catch SerializationException ex
-      (when-not (.causedBy ex BufferOverflowException) (throw ex))
-      (if (>= (.capacity buffer) *max-buffer*)
-        (throw (SerializationException. (str "Buffer limit exceeded serializing object of type: " (.getName (class item)))))
-        (do
-          (.reset (Kryo/getContext))
-          (write-with-cached-buffer registry (ByteBuffer/allocate (* 2 (.capacity buffer))) item))))))
+  (try (.writeClassAndObject registry buffer item)
+       [(extract-bytes buffer 0 (.position buffer))
+        (when (<= (.capacity buffer) *keep-buffer*)
+          buffer)]
+       (catch KryoException ex
+         (when-not (.causedBy ex BufferOverflowException) (throw ex))
+         (if (>= (.capacity buffer) *max-buffer*)
+           (throw (KryoException.
+                   (str "Buffer limit exceeded serializing object of type: "
+                        (.getName (class item)))))
+           (do (.clear (.getContext registry))
+               (write-with-cached-buffer registry
+                 (ByteBuffer/allocate (* 2 (.capacity buffer)))
+                 item))))))
 
 ;;;; APIs to read and write objects using byte[] and cached buffers.
 
 (defn write-bytes
   "Write obj using registry and return a byte[]."
-  [registry obj]
-  (let [buffer (ensure-buffer registry)
-          [item-bytes new-buffer] (write-with-cached-buffer registry buffer obj)]
-      (when new-buffer
-        (put-to-context new-buffer))
-      item-bytes))
+  [^Kryo registry obj]
+  (let [init   (int *initial-buffer*)
+        max    (int *max-buffer*)
+        output (Output. init max)]
+    (.writeClassAndObject registry output obj)
+    (.toBytes output)))
 
 (defn read-bytes
   "Read obj from byte[] using the registry."
   [^Kryo registry ^bytes bytes]
-  (read-buffer registry (ByteBuffer/wrap bytes)))
+  (.readClassAndObject registry (Input. bytes)))
+
+(comment
+  "Depends on the cached buffer."
+  (defn write-bytes
+    "Write obj using registry and return a byte[]."
+    [registry obj]
+    (let [buffer (ensure-buffer registry)
+          [item-bytes new-buffer] (write-with-cached-buffer registry buffer obj)]
+      (when new-buffer
+        (put-to-context registry new-buffer))
+      item-bytes))
+
+  (defn read-bytes
+    "Read obj from byte[] using the registry."
+    [^Kryo registry ^bytes bytes]
+    (read-buffer registry (ByteBuffer/wrap bytes))))
 
 
 ;; Copyright 2011 Revelytix, Inc.

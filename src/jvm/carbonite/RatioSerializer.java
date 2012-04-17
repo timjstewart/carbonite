@@ -1,28 +1,28 @@
 package carbonite;
 
 import clojure.lang.Ratio;
+import com.esotericsoftware.kryo.Kryo;
 import com.esotericsoftware.kryo.Serializer;
-import com.esotericsoftware.kryo.serialize.BigIntegerSerializer;
+import com.esotericsoftware.kryo.io.Input;
+import com.esotericsoftware.kryo.io.Output;
+import com.esotericsoftware.kryo.serializers.DefaultSerializers;
 
 import java.math.BigInteger;
-import java.nio.ByteBuffer;
 
 /** User: sritchie Date: 1/20/12 Time: 3:49 PM */
-public class RatioSerializer extends Serializer {
-    BigIntegerSerializer big  = new BigIntegerSerializer();
+public class RatioSerializer extends Serializer<Ratio> {
+    final DefaultSerializers.BigIntegerSerializer big  = new DefaultSerializers.BigIntegerSerializer();
 
-    @Override public void writeObjectData(ByteBuffer byteBuffer, Object o) {
-        Ratio ratio = (Ratio) o;
 
-        big.writeObjectData(byteBuffer, ratio.numerator);
-        big.writeObjectData(byteBuffer, ratio.denominator);
+    public void write(Kryo k, Output output, Ratio ratio) {
+        big.write(k, output, ratio.numerator);
+        big.write(k, output, ratio.denominator);
     }
 
-    @Override public <T> T readObjectData(ByteBuffer byteBuffer, Class<T> tClass) {
-        BigInteger num = big.readObjectData(byteBuffer, null);
-        BigInteger denom = big.readObjectData(byteBuffer, null);
+    public Ratio create(Kryo kryo, Input input, Class<Ratio> ratioClass) {
+        BigInteger num = big.create(kryo, input, null);
+        BigInteger denom = big.create(kryo, input, null);
 
-        return (T) new Ratio(num, denom);
-
+        return new Ratio(num, denom);
     }
 }
