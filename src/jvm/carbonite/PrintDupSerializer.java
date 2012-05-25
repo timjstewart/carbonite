@@ -7,7 +7,6 @@ import com.esotericsoftware.kryo.Serializer;
 import com.esotericsoftware.kryo.io.Input;
 import com.esotericsoftware.kryo.io.Output;
 
-/** User: sritchie Date: 1/21/12 Time: 7:57 PM */
 public class PrintDupSerializer extends Serializer {
     final Var cljRead;
     final Var cljPrintDup;

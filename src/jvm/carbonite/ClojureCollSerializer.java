@@ -6,7 +6,6 @@ import com.esotericsoftware.kryo.Kryo;
 import com.esotericsoftware.kryo.Serializer;
 import com.esotericsoftware.kryo.io.Output;
 
-/** User: sritchie Date: 1/21/12 Time: 8:01 PM */
 public abstract class ClojureCollSerializer extends Serializer {
     final Var printCollection;
     

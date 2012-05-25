@@ -5,7 +5,6 @@ import clojure.lang.Var;
 import com.esotericsoftware.kryo.Kryo;
 import com.esotericsoftware.kryo.io.Input;
 
-/** User: sritchie Date: 1/21/12 Time: 8:09 PM */
 public class ClojureSeqSerializer extends ClojureCollSerializer {
     final Var readSeq;
 

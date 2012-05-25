@@ -9,7 +9,6 @@ import com.esotericsoftware.kryo.serializers.DefaultSerializers;
 
 import java.math.BigInteger;
 
-/** User: sritchie Date: 1/20/12 Time: 3:49 PM */
 public class RatioSerializer extends Serializer<Ratio> {
     final DefaultSerializers.BigIntegerSerializer big  = new DefaultSerializers.BigIntegerSerializer();
 

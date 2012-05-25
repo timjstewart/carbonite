@@ -2,9 +2,6 @@
   (:use clojure.test
         [carbonite api buffer])
   (:import [java.nio ByteBuffer]
-           [java.net URI]
-           [java.util Date UUID]
-           [java.util.regex Pattern]
            [com.esotericsoftware.kryo Kryo]))
 
 (defn round-trip [item]
@@ -18,14 +15,6 @@
 (defn new-ts [time nano]
   (doto (java.sql.Timestamp. time)
     (.setNanos nano)))
-
-(deftest test-round-trip-regex
-  (are [re] (let [^Pattern round-tripped (round-trip re)]
-              (is (= (.pattern re)
-                     (.pattern round-tripped))))
-       #"[^\s]+"
-       #"^([0-9\(\)\/\+ \-]*)$"
-       #"string"))
 
 (deftest test-round-trip-kryo
   (are [obj] (is (= obj (round-trip obj)))
@@ -50,14 +39,6 @@
        {:a 1}      ;; map
        {:a 1 :b 2} ;; map
        {:a {:b {:c [1 #{"abc"} ]}}}  ;; nested collections
-       (Date.)  ;; java.util.Date
-       (new-ts 991000000 123456)   ;; java.sql.Timestamp
-       (java.sql.Date. 991000000)  ;; java.sql.Date
-       (java.sql.Time. 3600)       ;; java.sql.Time
-       (URI. "http://foo.com?bar=baz")  ;; java.net.URI
-       (URI. "http://\u20AC.com")  ;; java.net.URI with unicode
-       (UUID. 999 -42) 
-       (UUID. -42 999)
        (range 50)    ;; LazySeq
        (cons 1 '())  ;; Cons
        (cons 1 '(2))

@@ -3,13 +3,8 @@
   (:import [carbonite ClojureMapSerializer RatioSerializer
             ClojureReaderSerializer PrintDupSerializer StringSeqSerializer
             ClojureVecSerializer ClojureSetSerializer ClojureSeqSerializer]
-           [com.twitter.meatlocker.kryo  RegexSerializer SqlDateSerializer
-            SqlTimeSerializer TimestampSerializer URISerializer UUIDSerializer]
            [com.esotericsoftware.kryo Kryo]
            [com.esotericsoftware.kryo.io Input Output]
-           [java.util UUID]
-           [java.util.regex Pattern]
-           [java.sql Time Timestamp]
            [clojure.lang Keyword Symbol PersistentArrayMap
             PersistentHashMap MapEntry PersistentStructMap 
             PersistentVector PersistentHashSet Ratio ArraySeq
@@ -103,12 +98,7 @@
 
 (def java-primitives
   (array-map
-   Timestamp     (TimestampSerializer.)
-   java.sql.Date (SqlDateSerializer.)
-   java.sql.Time (SqlTimeSerializer.)
-   java.net.URI  (URISerializer.)
-   Pattern       (RegexSerializer.)
-   UUID          (UUIDSerializer.)))
+   ))
 
 (def clojure-collections
   (concat

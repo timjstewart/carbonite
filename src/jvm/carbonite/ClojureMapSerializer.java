@@ -1,7 +1,5 @@
 package carbonite;
 
-/** User: sritchie Date: 1/20/12 Time: 2:33 PM */
-
 import clojure.lang.RT;
 import clojure.lang.Var;
 import com.esotericsoftware.kryo.Kryo;

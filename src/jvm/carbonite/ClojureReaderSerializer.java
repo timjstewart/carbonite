@@ -7,7 +7,7 @@ import com.esotericsoftware.kryo.Serializer;
 import com.esotericsoftware.kryo.io.Input;
 import com.esotericsoftware.kryo.io.Output;
 
-/** User: sritchie Date: 1/20/12 Time: 3:57 PM
+/**
  *
  * Define a serializer that utilizes the Clojure pr-str and
  * read-string functions to serialize/deserialize instances relying

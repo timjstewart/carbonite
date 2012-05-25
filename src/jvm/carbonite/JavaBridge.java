@@ -7,26 +7,34 @@ import com.esotericsoftware.kryo.Kryo;
 public class JavaBridge {
     static final Var require = RT.var("clojure.core", "require");
     static final Var symbol = RT.var("clojure.core", "symbol");
+    static final Object INITIALIZATION_LOCK =  new Object();
 
     static Var defaultReg;
     static Var regSerializers;
     static Var cljPrimitives;
     static Var javaPrimitives;
     static Var cljCollections;
+    
+    static boolean initialized = false;
 
     public static void initialize() {
-        try {
-            require.invoke(symbol.invoke("carbonite.api"));
-            requireCarbonite();
-        } catch (Exception e) {
-            e.printStackTrace();
-        }
+        synchronized(INITIALIZATION_LOCK) {
+            if(!initialized) {
+                try {
+                    require.invoke(symbol.invoke("carbonite.api"));
+                    requireCarbonite();
+                } catch (Exception e) {
+                    e.printStackTrace();
+                }
 
-        defaultReg = RT.var("carbonite.api", "default-registry");
-        regSerializers = RT.var("carbonite.api", "register-serializers");
-        cljPrimitives  = RT.var("carbonite.serializer", "clojure-primitives");
-        javaPrimitives = RT.var("carbonite.serializer", "java-primitives");
-        cljCollections = RT.var("carbonite.serializer", "clojure-collections");
+                defaultReg = RT.var("carbonite.api", "default-registry");
+                regSerializers = RT.var("carbonite.api", "register-serializers");
+                cljPrimitives  = RT.var("carbonite.serializer", "clojure-primitives");
+                javaPrimitives = RT.var("carbonite.serializer", "java-primitives");
+                cljCollections = RT.var("carbonite.serializer", "clojure-collections");
+                initialized = true;
+            }
+        }
     }
 
     public static void registerPrimitives(Kryo registry) throws Exception {

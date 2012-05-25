@@ -7,7 +7,6 @@ import com.esotericsoftware.kryo.Serializer;
 import com.esotericsoftware.kryo.io.Input;
 import com.esotericsoftware.kryo.io.Output;
 
-/** User: sritchie Date: 1/21/12 Time: 8:19 PM */
 public class StringSeqSerializer extends Serializer {
     final Var readStringSeq;
     final Var printStringSeq;
