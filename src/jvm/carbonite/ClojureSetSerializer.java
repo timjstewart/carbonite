@@ -12,7 +12,7 @@ public class ClojureSetSerializer extends ClojureCollSerializer {
         readSet = RT.var("carbonite.serializer", "read-set");
     }
 
-    public Object create(Kryo kryo, Input input, Class aClass) {
+    public Object read(Kryo kryo, Input input, Class aClass) {
         return readSet.invoke(kryo, input);
     }
 }

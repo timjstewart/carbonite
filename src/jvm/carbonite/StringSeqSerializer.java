@@ -21,7 +21,7 @@ public class StringSeqSerializer extends Serializer {
         printStringSeq.invoke(output, o);
     }
 
-    public Object create(Kryo kryo, Input input, Class aClass) {
+    public Object read(Kryo kryo, Input input, Class aClass) {
         return readStringSeq.invoke(input);
     }
 }

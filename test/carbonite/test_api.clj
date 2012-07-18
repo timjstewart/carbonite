@@ -45,7 +45,8 @@
        (cons 1 '(2 3))
        (struct-map mystruct :a 1 :b 2)  ;; PersistentStructMap
        {:a 1 :b 2 :c 3 :d 4 :e 5 :f 6 :g 7 :h 8 :i 9} ;; PersistentArrayMap
-       (seq "abc") ;; StringSeq       
+       (seq "abc") ;; StringSeq
+       (apply str (repeat (* 2 1024 1024) "a")) ;; previous versions of kryo would truncate big strings
        ))
 
 (deftest test-roundtrip-iterator-seq
