@@ -1,8 +1,12 @@
-(defproject storm/carbonite "1.5.0"
-  :source-path "src/clj"
-  :java-source-path "src/jvm"
+(defproject storm/carbonite "1.6.1-SNAPSHOT"
   :description "Write Clojure data to and from bytes using Kryo."
+  :min-lein-version "2.0.0"
+  :source-paths ["src/clj"]
+  :java-source-paths ["src/jvm"]
   :dependencies  [[com.esotericsoftware.kryo/kryo "2.17"]
                   [org.clojure/clojure "1.4.0"]]
-  :warn-on-reflection true
-  :aot :all)
+  :global-vars { *warn-on-reflection* true }
+  :aot :all
+  :repositories [["pearson-nexus-releases", "https://nexus.pearsoncmg.com/nexus/content/repositories/releases"],
+                 ["pearson-nexus-snapshots", "https://nexus.pearsoncmg.com/nexus/content/repositories/snapshots"]])
+
